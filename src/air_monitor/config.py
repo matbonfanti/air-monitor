@@ -19,6 +19,9 @@ class Settings:
     host: str
     port: int
     verify_ssl: bool
+    dehumidifier_on_rh: float
+    dehumidifier_min_temp: float
+    dehumidifier_off_rh: float
     stale_after_seconds: int
     alert_after_failures: int
     alert_cooldown_seconds: int
@@ -40,6 +43,15 @@ class Settings:
                 env.get("AIR_REQUEST_TIMEOUT_SECONDS"), default=10.0, minimum=1.0
             ),
             verify_ssl=_parse_bool(env.get("AIR_DEVICE_VERIFY_SSL"), default=True),
+            dehumidifier_on_rh=_parse_float(
+                env.get("AIR_DEHUMIDIFIER_ON_RH"), default=61.0, minimum=0.0
+            ),
+            dehumidifier_min_temp=_parse_float(
+                env.get("AIR_DEHUMIDIFIER_MIN_TEMP"), default=24.0, minimum=-50.0
+            ),
+            dehumidifier_off_rh=_parse_float(
+                env.get("AIR_DEHUMIDIFIER_OFF_RH"), default=58.0, minimum=0.0
+            ),
             host=env.get("AIR_HOST", "0.0.0.0"),
             port=_parse_int(env.get("AIR_PORT"), default=8000, minimum=1),
             stale_after_seconds=_parse_int(

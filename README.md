@@ -35,6 +35,9 @@ The service is configured with environment variables:
 | `AIR_POLL_SECONDS` | `300` | Collection interval. Minimum accepted value: 10 seconds. |
 | `AIR_DB_PATH` | `/data/readings.sqlite` | SQLite database path. |
 | `AIR_REQUEST_TIMEOUT_SECONDS` | `10` | HTTP timeout for the device request. |
+| `AIR_DEHUMIDIFIER_ON_RH` | `61.0` | Relative humidity threshold to turn the dehumidifier on. |
+| `AIR_DEHUMIDIFIER_MIN_TEMP` | `24.0` | Minimum temperature required to turn the dehumidifier on. |
+| `AIR_DEHUMIDIFIER_OFF_RH` | `58.0` | Relative humidity threshold to turn the dehumidifier off. |
 | `AIR_HOST` | `0.0.0.0` | Web server bind host. |
 | `AIR_PORT` | `8000` | Web server port. |
 | `AIR_STALE_AFTER_SECONDS` | `2 * AIR_POLL_SECONDS` | Mark collection as stale when no success is newer than this. |

@@ -126,6 +126,57 @@ DASHBOARD_HTML = """
       padding: 14px;
     }
 
+    .dehumidifier-panel {
+      display: grid;
+      gap: 12px;
+    }
+
+    .dehumidifier-overview,
+    .dehumidifier-room {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 14px;
+    }
+
+    .dehumidifier-overview {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      align-items: center;
+    }
+
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: white;
+      background: var(--good);
+    }
+
+    .status-chip.off {
+      background: #d84315;
+    }
+
+    .status-chip.hold {
+      background: #f9a825;
+      color: #111;
+    }
+
+    .dehumidifier-room .values {
+      grid-template-columns: repeat(2, minmax(120px, 1fr));
+    }
+
+    .dehumidifier-room .stamp {
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
     .room {
       margin-bottom: 12px;
       color: var(--muted);
@@ -214,6 +265,15 @@ DASHBOARD_HTML = """
   <main class="wrap">
     <section id="latest" class="latest"></section>
 
+    <section class="chart-panel dehumidifier-panel">
+      <div class="chart-head">
+        <h2>Deumidificatore</h2>
+      </div>
+      <div id="dehumidifier-panel" class="dehumidifier-overview">
+        Caricamento condizioni deumidificatore...
+      </div>
+    </section>
+
     <section class="chart-panel">
       <div class="chart-head">
         <h2>Temperatura</h2>
@@ -242,6 +302,7 @@ DASHBOARD_HTML = """
   <script>
     const colors = ["#1769aa", "#c43b3b", "#117a65", "#8a5cc2", "#b36b00", "#4f7f87"];
     const latestEl = document.getElementById("latest");
+    const dehumidifierEl = document.getElementById("dehumidifier-panel");
     const statusEl = document.getElementById("status");
     const rangeEl = document.getElementById("range");
     const collectEl = document.getElementById("collect");
@@ -290,6 +351,63 @@ DASHBOARD_HTML = """
           <div class="stamp">${fmtTime(reading.timestamp)}</div>
         </article>
       `).join("");
+    }
+
+    function renderDehumidifier(payload) {
+      if (!payload || !payload.rooms || !payload.rooms.length) {
+        dehumidifierEl.innerHTML = '<div class="dehumidifier-room">Nessun dato disponibile.</div>';
+        return;
+      }
+
+      const statusClass = `status-chip ${payload.status}`;
+      const ruleBlocks = [`
+        <div>
+          <div class="label">ON se RH ≥</div>
+          <div class="value">${fmtNumber(payload.rules.on_rh, "%")}</div>
+        </div>
+        <div>
+          <div class="label">Min temp</div>
+          <div class="value">${fmtNumber(payload.rules.min_temp, "C")}</div>
+        </div>
+        <div>
+          <div class="label">OFF se RH ≤</div>
+          <div class="value">${fmtNumber(payload.rules.off_rh, "%")}</div>
+        </div>
+      `].join("");
+
+      const rows = payload.rooms
+        .map((room) => `
+          <article class="dehumidifier-room">
+            <div class="room">${room.room}</div>
+            <div class="values">
+              <div>
+                <div class="label">Temp</div>
+                <div class="value">${fmtNumber(room.temperature_c, "C")}</div>
+              </div>
+              <div>
+                <div class="label">RH</div>
+                <div class="value">${fmtNumber(room.humidity_rh, "%")}</div>
+              </div>
+              <div>
+                <div class="label">Stato</div>
+                <div class="value">${room.status.toUpperCase()}</div>
+              </div>
+            </div>
+            <div class="stamp">${room.message}</div>
+          </article>
+        `)
+        .join("");
+
+      dehumidifierEl.innerHTML = `
+        <div class="dehumidifier-overview">
+          <div>
+            <div class="room">Stato totale</div>
+            <div class="status-chip ${payload.status}">${payload.status.toUpperCase()}</div>
+          </div>
+          ${ruleBlocks}
+        </div>
+        ${rows}
+      `;
     }
 
     function drawChart(svgId, readings, key, emptyLabel) {
@@ -408,13 +526,24 @@ DASHBOARD_HTML = """
 
     async function refresh() {
       const hours = rangeEl.value;
-      const [healthResponse, latestResponse, readingsResponse] = await Promise.all([
+      const [
+        healthResponse,
+        latestResponse,
+        dehumidifierResponse,
+        readingsResponse,
+      ] = await Promise.all([
         fetch("/health"),
         fetch("/api/latest"),
+        fetch("/api/dehumidifier-status"),
         fetch(`/api/readings?hours=${hours}`),
       ]);
 
-      if (!healthResponse.ok || !latestResponse.ok || !readingsResponse.ok) {
+      if (
+        !healthResponse.ok ||
+        !latestResponse.ok ||
+        !dehumidifierResponse.ok ||
+        !readingsResponse.ok
+      ) {
         setStatus("Errore lettura dati", false);
         return;
       }
@@ -436,6 +565,8 @@ DASHBOARD_HTML = """
         "absolute_humidity_g_m3",
         "Nessuna umidita assoluta disponibile"
       );
+
+      renderDehumidifier(dehumidifier);
 
       if (health.status === "error" || health.status === "stale") {
         const scheduler = health.scheduler || {};
@@ -523,6 +654,73 @@ def create_app(
     def readings():
         hours = _parse_hours(request.args.get("hours"))
         return jsonify({"readings": store.list_readings(hours=hours)})
+
+    @app.get("/api/dehumidifier-status")
+    def dehumidifier_status():
+        latest = store.latest_by_room()
+        if not latest:
+            return jsonify(
+                {
+                    "status": "unknown",
+                    "message": "Nessun dato disponibile",
+                    "rooms": [],
+                    "rules": {
+                        "on_rh": settings.dehumidifier_on_rh,
+                        "min_temp": settings.dehumidifier_min_temp,
+                        "off_rh": settings.dehumidifier_off_rh,
+                    },
+                }
+            )
+
+        rooms = []
+        for reading in latest:
+            humidity = reading.get("humidity_rh")
+            temperature = reading.get("temperature_c")
+            if humidity is None or temperature is None:
+                status = "unknown"
+                message = "Dati incompleti"
+            elif (
+                temperature >= settings.dehumidifier_min_temp
+                and humidity >= settings.dehumidifier_on_rh
+            ):
+                status = "on"
+                message = "Condizioni per accendere il deumidificatore"
+            elif humidity <= settings.dehumidifier_off_rh:
+                status = "off"
+                message = "Condizioni per spegnere il deumidificatore"
+            else:
+                status = "hold"
+                message = "Nessuna azione consigliata"
+
+            rooms.append(
+                {
+                    "room": reading["room"],
+                    "temperature_c": temperature,
+                    "humidity_rh": humidity,
+                    "status": status,
+                    "message": message,
+                }
+            )
+
+        overall = (
+            "on"
+            if any(room["status"] == "on" for room in rooms)
+            else "off"
+            if all(room["status"] in {"off", "unknown"} for room in rooms)
+            else "hold"
+        )
+
+        return jsonify(
+            {
+                "status": overall,
+                "rooms": rooms,
+                "rules": {
+                    "on_rh": settings.dehumidifier_on_rh,
+                    "min_temp": settings.dehumidifier_min_temp,
+                    "off_rh": settings.dehumidifier_off_rh,
+                },
+            }
+        )
 
     @app.post("/api/collect")
     def collect():
