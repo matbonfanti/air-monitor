@@ -13,6 +13,7 @@ def _test_settings(db_path: Path) -> Settings:
         poll_seconds=300,
         db_path=db_path,
         request_timeout_seconds=10.0,
+        verify_ssl=True,
         host="127.0.0.1",
         port=8000,
         stale_after_seconds=600,
