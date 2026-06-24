@@ -30,6 +30,7 @@ The service is configured with environment variables:
 | --- | --- | --- |
 | `AIR_DEVICE_URL` | unset | Device endpoint returning the JSON payload with `list[0].status`. |
 | `AIR_DEVICE_COOKIE` | unset | Optional raw cookie header, for example `PHPSESSID=...`. |
+| `AIR_DEVICE_VERIFY_SSL` | `true` | Disable SSL certificate verification for self-signed HTTPS device endpoints. |
 | `AIR_ROOMS` | `SOGGIORNO,CAMERA 1,CAMERA 2,CAMERA 3` | Comma-separated room names to extract from the status string. |
 | `AIR_POLL_SECONDS` | `300` | Collection interval. Minimum accepted value: 10 seconds. |
 | `AIR_DB_PATH` | `/data/readings.sqlite` | SQLite database path. |
@@ -46,7 +47,7 @@ The service is configured with environment variables:
 Example:
 
 ```bash
-AIR_DEVICE_URL="http://192.168.1.45/d/A0001025/command.php?action=devices.list" \
+AIR_DEVICE_URL="https://example.local/device-status" \
 AIR_DEVICE_COOKIE="PHPSESSID=..." \
 AIR_DB_PATH="./readings.sqlite" \
 air-monitor

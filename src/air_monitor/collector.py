@@ -22,10 +22,17 @@ def collect_readings(
     rooms: Sequence[str],
     cookie: str | None = None,
     timeout_seconds: float = 10.0,
+    verify_ssl: bool = True,
     timestamp: datetime | None = None,
     session: requests.Session | None = None,
 ) -> list[Reading]:
-    status = fetch_status(url=url, cookie=cookie, timeout_seconds=timeout_seconds, session=session)
+    status = fetch_status(
+        url=url,
+        cookie=cookie,
+        timeout_seconds=timeout_seconds,
+        verify_ssl=verify_ssl,
+        session=session,
+    )
     return parse_status(status, rooms=rooms, timestamp=timestamp)
 
 
@@ -34,11 +41,17 @@ def fetch_status(
     url: str,
     cookie: str | None = None,
     timeout_seconds: float = 10.0,
+    verify_ssl: bool = True,
     session: requests.Session | None = None,
 ) -> str:
     client = session or requests.Session()
     headers = {"Cookie": cookie} if cookie else None
-    response = client.get(url, headers=headers, timeout=timeout_seconds)
+    response = client.get(
+        url,
+        headers=headers,
+        timeout=timeout_seconds,
+        verify=verify_ssl,
+    )
     response.raise_for_status()
     return extract_status(response.json())
 

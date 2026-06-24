@@ -22,6 +22,7 @@ def collect_once(settings: Settings, store: ReadingStore) -> int:
         rooms=settings.rooms,
         cookie=settings.device_cookie,
         timeout_seconds=settings.request_timeout_seconds,
+        verify_ssl=settings.verify_ssl,
     )
     return store.add_readings(readings)
 

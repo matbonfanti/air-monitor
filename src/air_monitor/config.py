@@ -18,6 +18,7 @@ class Settings:
     request_timeout_seconds: float
     host: str
     port: int
+    verify_ssl: bool
     stale_after_seconds: int
     alert_after_failures: int
     alert_cooldown_seconds: int
@@ -38,6 +39,7 @@ class Settings:
             request_timeout_seconds=_parse_float(
                 env.get("AIR_REQUEST_TIMEOUT_SECONDS"), default=10.0, minimum=1.0
             ),
+            verify_ssl=_parse_bool(env.get("AIR_DEVICE_VERIFY_SSL"), default=True),
             host=env.get("AIR_HOST", "0.0.0.0"),
             port=_parse_int(env.get("AIR_PORT"), default=8000, minimum=1),
             stale_after_seconds=_parse_int(
@@ -98,3 +100,16 @@ def _parse_float(value: str | None, *, default: float, minimum: float) -> float:
         msg = f"Value must be >= {minimum}"
         raise ValueError(msg)
     return parsed
+
+
+def _parse_bool(value: str | None, *, default: bool) -> bool:
+    if value is None or not value.strip():
+        return default
+
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+
+    raise ValueError("Value must be a boolean")

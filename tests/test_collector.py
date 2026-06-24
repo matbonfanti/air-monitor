@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
-from air_monitor.collector import extract_status, parse_status
+from air_monitor.collector import extract_status, fetch_status, parse_status
+from air_monitor.config import Settings
 
 
 def test_extract_status_from_device_list_payload():
@@ -30,3 +31,37 @@ def test_parse_status_extracts_first_temperature_and_humidity():
     assert readings[1].humidity_rh == 60
     assert readings[2].temperature_c is None
     assert readings[2].humidity_rh is None
+
+
+def test_fetch_status_disables_ssl_verification(monkeypatch):
+    class DummyResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, list[dict[str, str]]]:
+            return {"list": [{"status": "SOGGIORNO 20 C 50 RH"}]}
+
+    class DummySession:
+        def get(self, url: str, headers: dict[str, str] | None, timeout: float, verify: bool):
+            assert url == "https://example.local/device-status"
+            assert headers == {"Cookie": "PHPSESSID=test-session"}
+            assert timeout == 1
+            assert verify is False
+            return DummyResponse()
+
+    monkeypatch.setattr("air_monitor.collector.requests.Session", lambda: DummySession())
+
+    status = fetch_status(
+        url="https://example.local/device-status",
+        cookie="PHPSESSID=test-session",
+        timeout_seconds=1,
+        verify_ssl=False,
+    )
+
+    assert status == "SOGGIORNO 20 C 50 RH"
+
+
+def test_settings_from_env_disables_ssl_verification():
+    settings = Settings.from_env({"AIR_DEVICE_VERIFY_SSL": "false"})
+
+    assert settings.verify_ssl is False
